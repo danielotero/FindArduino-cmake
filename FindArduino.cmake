@@ -82,6 +82,15 @@ function(add_arduino_library LIB_NAME)
     file(GLOB_RECURSE HDR_FILES ${HDR_SEARCH_LIST})
     file(GLOB_RECURSE SRC_FILES ${SRC_SEARCH_LIST})
 
+    if(SRC_FILES)
+        add_library(${LIB_NAME} STATIC ${SRC_FILES})
+    else()
+        message(FATAL_ERROR "Library ${LIB_NAME} in ${LIB_PATH} not found.")
+    endif()
+
+    target_include_directories(${LIB_NAME} PRIVATE "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino")
+    target_include_directories(${LIB_NAME} PRIVATE "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/variants/${ARDUINO_VARIANT}")
+
     if(HDR_FILES)
         set(DIR_LIST "")
         foreach(FILE_PATH ${HDR_FILES})
@@ -90,14 +99,7 @@ function(add_arduino_library LIB_NAME)
         endforeach()
         list(REMOVE_DUPLICATES DIR_LIST)
 
-        include_directories(${DIR_LIST})
-    endif()
-
-    if(SRC_FILES)
-        add_library(${LIB_NAME} STATIC
-                    ${SRC_FILES})
-    else()
-        message(FATAL_ERROR "Library ${LIB_NAME} in ${LIB_PATH} not found.")
+        target_include_directories(${LIB_NAME} PUBLIC ${DIR_LIST})
     endif()
 endfunction()
 
