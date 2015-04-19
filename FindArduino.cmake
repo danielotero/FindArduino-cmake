@@ -57,6 +57,9 @@ function(add_arduinocore_library)
         "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino/*.c"
     )
     add_library(arduinocore STATIC ${ARDUINO_CORE_SRC_FILES})
+
+    target_include_directories(arduinocore PUBLIC "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino")
+    target_include_directories(arduinocore PUBLIC "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/variants/${ARDUINO_VARIANT}")
 endfunction()
 
 
@@ -130,10 +133,7 @@ endfunction()
 #=============================================================================#
 #                                Initialization                               #
 #=============================================================================#
-if(ARDUINO_SDK_PATH)
-    include_directories("${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino")
-    include_directories("${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/variants/${ARDUINO_VARIANT}")
-else()
+if(NOT ARDUINO_SDK_PATH)
     message(FATAL_ERROR "Could not find Arduino SDK (set ARDUINO_SDK_PATH)!")
 endif()
 
