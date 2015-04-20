@@ -3,7 +3,7 @@ Simple FindArduino CMake module for building and using Arduino as an external li
 
 This allows using any IDE that supports CMake (eg. Qt Creator, KDevelop) to code, compile and upload Arduino-based applications.
 
-As arduino is focused on embedded platforms, you'll probably also need and additional CMake toolchain file (eg. https://github.com/mkleemann/cmake-avr)
+As arduino is focused on embedded platforms, you'll probably also need and additional CMake toolchain file (eg. [mkleemann/cmake-avr](https://github.com/mkleemann/cmake-avr))
 
 ## Example
 ### CMakeLists.txt
@@ -16,6 +16,7 @@ set(AVR_UPLOADTOOL_PORT "/dev/ttyACM0")
 set(AVR_PROGRAMMER wiring)
 set(AVR_UPLOADTOOL_OPTIONS "-D")
 set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/cmake/generic-gcc-avr.cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake") # Folder where FindArduino.cmake is
 
 #=============================================================================#
 #                                 Project                                     #
@@ -44,9 +45,8 @@ target_link_libraries(examplelib STATIC arduinocore Wire)
 #=============================================================================#
 #                                  AVR image                                  #
 #=============================================================================#
-add_avr_executable(example
-    SRCS src/main.c
-    LIBS examplelib)
+add_avr_executable(example src/main.c)
+target_link_libraries(example examplelib)
 ```
 
 ### Linux Console:
@@ -57,4 +57,4 @@ user@host build_dir $ make upload_example
 
 ## Notes
 - This code is young and has not been thoroughly tested.
-- If you are interested in a more complete approach, see: https://github.com/queezythegreat/arduino-cmake
+- If you are interested in a more complete approach, see: [queezythegreat/arduino-cmake](https://github.com/queezythegreat/arduino-cmake)
