@@ -70,46 +70,44 @@ endfunction()
 #
 # Generates the requested Arduino library name LIB_NAME
 #=============================================================================
-function(add_arduino_libraries)
-    foreach(LIB_NAME ${ARGN})
-      set(LIB_PATH "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/libraries/${LIB_NAME}")
+function(add_arduino_library LIB_NAME)
+    set(LIB_PATH "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/libraries/${LIB_NAME}")
 
-      set(HDR_SEARCH_LIST
-          ${LIB_PATH}/*.h
-          ${LIB_PATH}/*.hh
-          ${LIB_PATH}/*.hxx)
+    set(HDR_SEARCH_LIST
+        ${LIB_PATH}/*.h
+        ${LIB_PATH}/*.hh
+        ${LIB_PATH}/*.hxx)
 
-      set(SRC_SEARCH_LIST
-          ${LIB_PATH}/*.cpp
-          ${LIB_PATH}/*.c
-          ${LIB_PATH}/*.cc
-          ${LIB_PATH}/*.cxx)
+    set(SRC_SEARCH_LIST
+        ${LIB_PATH}/*.cpp
+        ${LIB_PATH}/*.c
+        ${LIB_PATH}/*.cc
+        ${LIB_PATH}/*.cxx)
 
-      file(GLOB_RECURSE HDR_FILES ${HDR_SEARCH_LIST})
-      file(GLOB_RECURSE SRC_FILES ${SRC_SEARCH_LIST})
+    file(GLOB_RECURSE HDR_FILES ${HDR_SEARCH_LIST})
+    file(GLOB_RECURSE SRC_FILES ${SRC_SEARCH_LIST})
 
-      if(SRC_FILES OR HDR_FILES)
-          add_library(${LIB_NAME} STATIC ${SRC_FILES} ${HDR_FILES})
-          set_target_properties(${LIB_NAME} PROPERTIES LINKER_LANGUAGE CXX)
-          target_include_directories(${LIB_NAME} PRIVATE
-              "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino")
-          target_include_directories(${LIB_NAME} PRIVATE
-              "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/variants/${ARDUINO_VARIANT}")
-      else()
-          message(FATAL_ERROR "Library ${LIB_NAME} in ${LIB_PATH} not found.")
-      endif()
+    if(SRC_FILES OR HDR_FILES)
+        add_library(${LIB_NAME} STATIC ${SRC_FILES} ${HDR_FILES})
+        set_target_properties(${LIB_NAME} PROPERTIES LINKER_LANGUAGE CXX)
+        target_include_directories(${LIB_NAME} PRIVATE
+            "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino")
+        target_include_directories(${LIB_NAME} PRIVATE
+            "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/variants/${ARDUINO_VARIANT}")
+    else()
+        message(FATAL_ERROR "Library ${LIB_NAME} in ${LIB_PATH} not found.")
+    endif()
 
-      if(HDR_FILES)
-          set(DIR_LIST "")
-          foreach(FILE_PATH ${HDR_FILES})
-              get_filename_component(DIR_PATH ${FILE_PATH} PATH)
-              set(DIR_LIST ${DIR_LIST} ${DIR_PATH})
-          endforeach()
-          list(REMOVE_DUPLICATES DIR_LIST)
+    if(HDR_FILES)
+        set(DIR_LIST "")
+        foreach(FILE_PATH ${HDR_FILES})
+            get_filename_component(DIR_PATH ${FILE_PATH} PATH)
+            set(DIR_LIST ${DIR_LIST} ${DIR_PATH})
+        endforeach()
+        list(REMOVE_DUPLICATES DIR_LIST)
 
-          target_include_directories(${LIB_NAME} PUBLIC ${DIR_LIST})
-      endif()
-    endforeach()
+        target_include_directories(${LIB_NAME} PUBLIC ${DIR_LIST})
+    endif()
 endfunction()
 
 
