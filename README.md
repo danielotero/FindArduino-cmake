@@ -39,14 +39,15 @@ add_arduino_library(Wire)
 #=============================================================================#
 #                                   AVR lib                                   #
 #=============================================================================#
-add_library(examplelib src/library.c)
-target_link_libraries(examplelib STATIC arduinocore Wire)
+add_library(examplelib STATIC src/library.c)
+target_link_libraries(examplelib arduinocore Wire)
 
 #=============================================================================#
 #                                  AVR image                                  #
 #=============================================================================#
+add_arduino_library(EEPROM)
 add_avr_executable(example src/main.c)
-target_link_libraries(example examplelib)
+target_link_libraries(example examplelib EEPROM)
 ```
 
 ### Linux Console:
