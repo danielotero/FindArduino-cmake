@@ -8,7 +8,7 @@
 # ::
 #
 #   ARDUINO_FOUND - system has Arduino
-#   ARDUINO_VERSION_STRING - the version of Arduino found
+#   ARDUINO_VERSION - the version of Arduino found
 #
 # Example usage:
 #
@@ -17,10 +17,10 @@
 #    find_package(Arduino REQUIRED)
 #
 #    add_arduinocore_library()
-#    add_arduino_library(Wire)
+#    add_arduino_libraries(Wire EEPROM)
 #
 #    add_executable(example src/example.c)
-#    target_link_libraries(example STATIC arduinocore Wire)
+#    target_link_libraries(example STATIC arduinocore Wire EEPROM)
 
 #=============================================================================
 # The MIT License (MIT)
@@ -58,8 +58,10 @@ function(add_arduinocore_library)
     )
     add_library(arduinocore STATIC ${ARDUINO_CORE_SRC_FILES})
 
-    target_include_directories(arduinocore PUBLIC "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino")
-    target_include_directories(arduinocore PUBLIC "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/variants/${ARDUINO_VARIANT}")
+    target_include_directories(arduinocore PUBLIC
+        "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino")
+    target_include_directories(arduinocore PUBLIC
+        "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/variants/${ARDUINO_VARIANT}")
 endfunction()
 
 
@@ -68,52 +70,57 @@ endfunction()
 #
 # Generates the requested Arduino library name LIB_NAME
 #=============================================================================
-function(add_arduino_library LIB_NAME)
-    set(LIB_PATH "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/libraries/${LIB_NAME}")
+function(add_arduino_libraries)
+    foreach(LIB_NAME ${ARGN})
+      set(LIB_PATH "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/libraries/${LIB_NAME}")
 
-    set(HDR_SEARCH_LIST
-        ${LIB_PATH}/*.h
-        ${LIB_PATH}/*.hh
-        ${LIB_PATH}/*.hxx)
+      set(HDR_SEARCH_LIST
+          ${LIB_PATH}/*.h
+          ${LIB_PATH}/*.hh
+          ${LIB_PATH}/*.hxx)
 
-    set(SRC_SEARCH_LIST
-        ${LIB_PATH}/*.cpp
-        ${LIB_PATH}/*.c
-        ${LIB_PATH}/*.cc
-        ${LIB_PATH}/*.cxx)
+      set(SRC_SEARCH_LIST
+          ${LIB_PATH}/*.cpp
+          ${LIB_PATH}/*.c
+          ${LIB_PATH}/*.cc
+          ${LIB_PATH}/*.cxx)
 
-    file(GLOB_RECURSE HDR_FILES ${HDR_SEARCH_LIST})
-    file(GLOB_RECURSE SRC_FILES ${SRC_SEARCH_LIST})
+      file(GLOB_RECURSE HDR_FILES ${HDR_SEARCH_LIST})
+      file(GLOB_RECURSE SRC_FILES ${SRC_SEARCH_LIST})
 
-    if(SRC_FILES)
-        add_library(${LIB_NAME} STATIC ${SRC_FILES})
-    else()
-        message(FATAL_ERROR "Library ${LIB_NAME} in ${LIB_PATH} not found.")
-    endif()
+      if(SRC_FILES OR HDR_FILES)
+          add_library(${LIB_NAME} STATIC ${SRC_FILES} ${HDR_FILES})
+          set_target_properties(${LIB_NAME} PROPERTIES LINKER_LANGUAGE CXX)
+          target_include_directories(${LIB_NAME} PRIVATE
+              "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino")
+          target_include_directories(${LIB_NAME} PRIVATE
+              "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/variants/${ARDUINO_VARIANT}")
+      else()
+          message(FATAL_ERROR "Library ${LIB_NAME} in ${LIB_PATH} not found.")
+      endif()
 
-    target_include_directories(${LIB_NAME} PRIVATE "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/cores/arduino")
-    target_include_directories(${LIB_NAME} PRIVATE "${ARDUINO_SDK_PATH}/hardware/arduino/${ARDUINO_PLATFORM}/variants/${ARDUINO_VARIANT}")
+      if(HDR_FILES)
+          set(DIR_LIST "")
+          foreach(FILE_PATH ${HDR_FILES})
+              get_filename_component(DIR_PATH ${FILE_PATH} PATH)
+              set(DIR_LIST ${DIR_LIST} ${DIR_PATH})
+          endforeach()
+          list(REMOVE_DUPLICATES DIR_LIST)
 
-    if(HDR_FILES)
-        set(DIR_LIST "")
-        foreach(FILE_PATH ${HDR_FILES})
-            get_filename_component(DIR_PATH ${FILE_PATH} PATH)
-            set(DIR_LIST ${DIR_LIST} ${DIR_PATH})
-        endforeach()
-        list(REMOVE_DUPLICATES DIR_LIST)
-
-        target_include_directories(${LIB_NAME} PUBLIC ${DIR_LIST})
-    endif()
+          target_include_directories(${LIB_NAME} PUBLIC ${DIR_LIST})
+      endif()
+    endforeach()
 endfunction()
 
 
-#=============================================================================
-# detect_arduino_version(VERSION_NAME VERSION_DEFINE)
-#
-#       VERSION_NAME - Name of Arduino detected version
-#       VERSION_DEFINE - ARDUINO macro name
-#=============================================================================
-function(detect_arduino_version VERSION_NAME VERSION_DEFINE)
+#=============================================================================#
+# detect_arduino_version(ARDUINO_VERSION_PATH)                                #
+#                                                                             #
+#       ARDUINO_VERSION_PATH - Arduino version file                           #
+#                                                                             #
+# Detect Arduino version and declare ARDUINO_VERSION and ARDUINO              #
+#=============================================================================#
+function(detect_arduino_version ARDUINO_VERSION_PATH)
     file(READ ${ARDUINO_VERSION_PATH} RAW_VERSION)
 
     if("${RAW_VERSION}" MATCHES "([0-9]+[.][0-9]+[.][0-9]+)")
@@ -125,10 +132,22 @@ function(detect_arduino_version VERSION_NAME VERSION_DEFINE)
     endif()
 
     string(REPLACE "." "" VERSION_DEF ${PARSED_VERSION})
-    set(${VERSION_DEFINE} "${VERSION_DEF}"    PARENT_SCOPE)
-    set(${VERSION_NAME}   "${PARSED_VERSION}" PARENT_SCOPE)
+
+    set(ARDUINO_VERSION "${PARSED_VERSION}" PARENT_SCOPE)
+    set(ARDUINO ${VERSION_DEF} PARENT_SCOPE)
+    add_definitions(-DARDUINO=${ARDUINO})
 endfunction()
 
+#=============================================================================#
+#                            Default variables                                #
+#=============================================================================#
+if(NOT ARDUINO_VARIANT)
+    set(ARDUINO_VARIANT standard CACHE STRING "Arduino variant")
+endif()
+
+if(NOT ARDUINO_PLATFORM)
+    set(ARDUINO_PLATFORM avr CACHE STRING "Arduino platform")
+endif()
 
 #=============================================================================#
 #                                Initialization                               #
@@ -142,32 +161,7 @@ find_file(ARDUINO_VERSION_PATH
     PATHS ${ARDUINO_SDK_PATH}
     DOC "Path to Arduino version file.")
 
-if(NOT ARDUINO_VERSION_PATH)
-    message(FATAL_ERROR "Invalid Arduino SDK path (${ARDUINO_SDK_PATH})")
-endif()
+detect_arduino_version(${ARDUINO_VERSION_PATH})
 
-detect_arduino_version(ARDUINO_SDK_VERSION ARDUINO_VERSION_DEFINE)
-set(ARDUINO_VERSION_STRING ${ARDUINO_SDK_VERSION}
-        CACHE STRING "Arduino version")
-set(ARDUINO_VERSION_DEFINE ${ARDUINO_VERSION_DEFINE})
-
-message(STATUS "Detected arduino SDK version ${ARDUINO_VERSION_STRING}")
-set(ARDUINO_FOUND True CACHE INTERNAL "Arduino Found")
-
-
-#=============================================================================#
-#                            Default variables                                #
-#=============================================================================#
-if(NOT ARDUINO_VARIANT)
-    set(ARDUINO_VARIANT standard
-        CACHE STRING "Arduino variant")
-endif()
-
-if(NOT ARDUINO_PLATFORM)
-    set(ARDUINO_PLATFORM avr
-        CACHE STRING "Arduino platform")
-endif()
-
-if(ARDUINO_VERSION_DEFINE)
-    add_definitions(-DARDUINO=${ARDUINO_VERSION_DEFINE})
-endif()
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(Arduino "Invalid Arduino SDK path"
+    ARDUINO_VERSION)
