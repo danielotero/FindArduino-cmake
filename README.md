@@ -1,9 +1,14 @@
 # FindArduino-cmake
-Simple FindArduino CMake module for building and using Arduino as an external library
+Simple FindArduino CMake module for building and using Arduino as an external
+library.
 
-This allows using any IDE that supports CMake (eg. Qt Creator, KDevelop) to code, compile and upload Arduino-based applications.
+This allows using any IDE that supports CMake (eg. Qt Creator) to code,
+compile and upload Arduino-based applications.
 
-As arduino is focused on embedded platforms, you'll probably also need and additional CMake toolchain file (eg. [mkleemann/cmake-avr](https://github.com/mkleemann/cmake-avr))
+As arduino is focused on embedded platforms, you'll probably also need and
+additional CMake toolchain file (eg.
+[Generic-avr.cmake](https://github.com/danielotero/Generic-avr.cmake) or
+[cmake-avr](https://github.com/mkleemann/cmake-avr)).
 
 ## Example
 ### CMakeLists.txt
@@ -11,48 +16,47 @@ As arduino is focused on embedded platforms, you'll probably also need and addit
 #=============================================================================#
 #                              Cross-compile                                  #
 #=============================================================================#
-set(AVR_MCU atmega2560)
-set(AVR_UPLOADTOOL_PORT "/dev/ttyACM0")
-set(AVR_PROGRAMMER wiring)
-set(AVR_UPLOADTOOL_OPTIONS "-D")
-set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/cmake/generic-gcc-avr.cmake")
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake") # Folder where FindArduino.cmake is
+set(DEFAULT_AVR_MCU atmega2560  CACHE STRING "")
+set(AVRDUDE_PORT "/dev/ttyACM0" CACHE STRING "")
+set(AVRDUDE_PROGRAMMER "wiring" CACHE STRING "")
+
+set(CMAKE_TOOLCHAIN_FILE "cmake/Generic-avr.cmake")
+list(APPEND CMAKE_MODULE_PATH "cmake/modules") # Where FindArduino.cmake is
 
 #=============================================================================#
 #                                 Project                                     #
 #=============================================================================#
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 
 project(example
-        LANGUAGES C CXX)
+  VERSION 0.0.1
+  LANGUAGES C CXX
+)
 
 #=============================================================================#
 #                                   Arduino                                   #
 #=============================================================================#
-set(ARDUINO_SDK_PATH /usr/share/arduino)
-set(ARDUINO_VARIANT mega)
+set(ARDUINO_SDK_PATH /usr/share/arduino CACHE PATH   "")
+set(ARDUINO_VARIANT mega                CACHE STRING "")
 find_package(Arduino REQUIRED)
-
-add_arduinocore_library()
-add_arduino_library(Wire)
 
 #=============================================================================#
 #                                   AVR lib                                   #
 #=============================================================================#
 add_library(examplelib STATIC src/library.c)
-target_link_libraries(examplelib arduinocore Wire)
+target_link_libraries(examplelib arduino arduino_Wire)
 
 #=============================================================================#
 #                                  AVR image                                  #
 #=============================================================================#
-add_arduino_library(EEPROM)
-add_avr_executable(example src/main.c)
-target_link_libraries(example examplelib EEPROM)
+add_executable(example src/main.c)
+target_link_libraries(example examplelib arduino_EEPROM)
+add_avr_firmware(example)
 ```
 
 ### Linux Console:
 ```Bash
-user@host build_dir $ cmake ../src_dir
+user@host build_dir $ cmake <path_to>/src_dir
 user@host build_dir $ make upload_example
 ```
 
