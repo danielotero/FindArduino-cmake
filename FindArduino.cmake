@@ -14,7 +14,7 @@ set(ARDUINO_SDK_PATH "/usr/share/arduino"   CACHE FILEPATH  "Arduino SDK Path")
 set(ARDUINO_VENDOR   "arduino"              CACHE STRING    "Arduino vendor")
 set(ARDUINO_VARIANT  "standard"             CACHE STRING    "Arduino variant")
 
-if (CMAKE_SYSTEM_PROCESSOR EQUAL "avr")
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "avr")
   set(ARDUINO_PLATFORM "avr"                CACHE STRING    "Arduino platform")
 else()
   set(ARDUINO_PLATFORM "<unknown>"          CACHE STRING    "Arduino platform")
