@@ -13,111 +13,125 @@
 set(ARDUINO_SDK_PATH "/usr/share/arduino"   CACHE FILEPATH  "Arduino SDK Path")
 set(ARDUINO_VENDOR   "arduino"              CACHE STRING    "Arduino vendor")
 set(ARDUINO_VARIANT  "standard"             CACHE STRING    "Arduino variant")
+set(ARDUINO_BOARD    "uno"                  CACHE STRING    "Arduino board")
 
 if (CMAKE_SYSTEM_PROCESSOR STREQUAL "avr")
-  set(ARDUINO_PLATFORM "avr"                CACHE STRING    "Arduino platform")
+  set(ARDUINO_ARCH   "avr"                CACHE STRING    "Arduino architecture")
 else()
-  set(ARDUINO_PLATFORM "<unknown>"          CACHE STRING    "Arduino platform")
+  set(ARDUINO_ARCH   "<unknown>"          CACHE STRING    "Arduino architecture")
 endif()
+mark_as_advanced(ARDUINO_ARCH)
 
 #
-# Internal function: create the arduino and the external libaries in the SDK
+# Create all the external libaries in given path.
+# Optionally, add only the given libraries.
 #
-function(_create_arduino_targets PLATFORM_PATH)
-  file(GLOB ARDUINO_CORE_SRC_FILES
-    "${PLATFORM_PATH}/cores/arduino/*.cpp"
-    "${PLATFORM_PATH}/cores/arduino/*.c"
-  )
-  add_library(arduino STATIC EXCLUDE_FROM_ALL ${ARDUINO_CORE_SRC_FILES})
-  target_include_directories(arduino PUBLIC
-    "${PLATFORM_PATH}/cores/arduino"
-  )
-  target_include_directories(arduino PUBLIC
-    "${PLATFORM_PATH}/variants/${ARDUINO_VARIANT}"
-  )
+function(ADD_ARDUINO_LIBRARY_DIRECTORIES lib_path)
+  list(LENGTH ARGN argn_size)
+  if (${argn_size} GREATER 0)
+    set(libs ${ARGN})
+  else()
+    file(GLOB libs RELATIVE ${lib_path} ${lib_path}/*)
+  endif()
 
-  _create_arduino_library_targets("${PLATFORM_PATH}/libraries")
-endfunction()
+  foreach(lib ${libs})
+    set(lib_src "${lib_path}/${lib}/src")
+    if(IS_DIRECTORY ${lib_src})
+      set(lib_name "arduino_${lib}")
 
-#
-# Internal function: create all the external libaries in the Arduino SDK
-#
-function(_create_arduino_library_targets LIB_PATH)
-  file(GLOB LIBS RELATIVE ${LIB_PATH} ${LIB_PATH}/*)
-  foreach(LIB ${LIBS})
-    set(LIB_SRC "${LIB_PATH}/${LIB}/src")
-    if(IS_DIRECTORY ${LIB_SRC})
-      set(LIB_NAME "arduino_${LIB}")
-
-      file(GLOB_RECURSE SRC_FILES
-        ${LIB_SRC}/*.cpp
-        ${LIB_SRC}/*.c
+      file(GLOB_RECURSE src_files
+        ${lib_src}/*.cpp
+        ${lib_src}/*.c
       )
 
-      file(GLOB HDR_FILES
-        ${LIB_SRC}/*.h
+      file(GLOB hdr_files
+        ${lib_src}/*.h
       )
 
-      if(SRC_FILES)
-        add_library(${LIB_NAME} STATIC EXCLUDE_FROM_ALL
-          ${SRC_FILES}
+      if(src_files)
+        add_library(${lib_name} STATIC EXCLUDE_FROM_ALL
+          ${src_files}
         )
-        target_include_directories(${LIB_NAME} INTERFACE ${LIB_SRC})
-        target_link_libraries(${LIB_NAME} arduino)
-      elseif(HDR_FILES)
-        add_library(${LIB_NAME} INTERFACE)
-        target_sources(${LIB_NAME} INTERFACE ${HDR_FILES})
-        target_include_directories(${LIB_NAME} INTERFACE ${LIB_SRC})
+        target_include_directories(${lib_name} PUBLIC ${lib_src})
+        target_link_libraries(${lib_name} arduino)
+      elseif(hdr_files)
+        add_library(${lib_name} INTERFACE)
+        target_sources(${lib_name} INTERFACE ${hdr_files})
+        target_include_directories(${lib_name} INTERFACE ${lib_src})
+        target_link_libraries(${lib_name} arduino)
       endif()
     endif()
   endforeach()
 endfunction()
 
 #
-# Internal function: set the variable VERSION_VAR from the Arduino version.txt
+# Internal function: create the arduino and the external libaries in the SDK
+#
+function(_CREATE_ARDUINO_TARGETS platform_path)
+  file(GLOB arduino_core_src_files
+    "${platform_path}/cores/arduino/*.cpp"
+    "${platform_path}/cores/arduino/*.c"
+  )
+  add_library(arduino STATIC EXCLUDE_FROM_ALL ${arduino_core_src_files})
+  target_include_directories(arduino PUBLIC
+    "${platform_path}/cores/arduino"
+  )
+  target_include_directories(arduino PUBLIC
+    "${platform_path}/variants/${ARDUINO_VARIANT}"
+  )
+
+  ADD_ARDUINO_LIBRARY_DIRECTORIES("${platform_path}/libraries")
+endfunction()
+
+#
+# Internal function: set the variable version_var from the Arduino version.txt
 #   file
 #
-function(_detect_arduino_version VERSION_VAR ARDUINO_VERSION_FILE)
-    file(READ ${ARDUINO_VERSION_FILE} RAW_VERSION)
+function(_DETECT_ARDUINO_VERSION version_var arduino_version_file)
+  file(READ ${arduino_version_file} RAW_VERSION)
 
-    if("${RAW_VERSION}" MATCHES "([0-9]+\\.[0-9]+\\.[0-9]+)")
-        set(PARSED_VERSION ${CMAKE_MATCH_1})
-    elseif("${RAW_VERSION}" MATCHES "([0-9]+\\.[0-9]+)")
-        set(PARSED_VERSION ${CMAKE_MATCH_1}.0)
-    else()
-        message(SEND_ERROR "Invalid Arduino version file: \"${ARDUINO_VERSION_FILE}\"")
-    endif()
+  if("${RAW_VERSION}" MATCHES "([0-9]+\\.[0-9]+\\.[0-9]+)")
+    set(parsed_version ${CMAKE_MATCH_1})
+  elseif("${RAW_VERSION}" MATCHES "([0-9]+\\.[0-9]+)")
+    set(parsed_version ${CMAKE_MATCH_1}.0)
+  else()
+    message(SEND_ERROR "Invalid Arduino version file: \"${arduino_version_file}\"")
+  endif()
 
-    set(${VERSION_VAR} "${PARSED_VERSION}" PARENT_SCOPE)
+  set(${version_var} "${parsed_version}" PARENT_SCOPE)
 
-    string(REPLACE "." "" VERSION_DEFINITION ${PARSED_VERSION})
-    add_definitions(-DARDUINO=${ARDUINO})
+  string(REPLACE "." "" version_definition ${parsed_version})
+  string(TOUPPER "${ARDUINO_BOARD}" arduino_board_upper)
+  string(TOUPPER "${ARDUINO_ARCH}" arduino_arch_upper)
+  add_definitions(-DARDUINO=${version_definition})
+  add_definitions(-DARDUINO_${arduino_board_upper})
+  add_definitions(-DARDUINO_ARCH_${arduino_arch_upper})
 endfunction()
 
 #
 # Find the Arduino version file
 #
-set(VERSION_FILE "lib/version.txt")
-find_file(ARDUINO_VERSION_FILE
-  NAMES ${VERSION_FILE}
+set(version_file "lib/version.txt")
+find_file(arduino_version_file
+  NAMES ${version_file}
   PATHS ${ARDUINO_SDK_PATH}
   DOC "Path to Arduino version file."
 )
-set(VENDOR_PATH "${ARDUINO_SDK_PATH}/hardware/${ARDUINO_VENDOR}")
-set(PLATFORM_PATH "${VENDOR_PATH}/${ARDUINO_PLATFORM}")
+set(vendor_path "${ARDUINO_SDK_PATH}/hardware/${ARDUINO_VENDOR}")
+set(platform_path "${vendor_path}/${ARDUINO_ARCH}")
 
-if (ARDUINO_VERSION_FILE)
-  if (EXISTS "${VENDOR_PATH}")
-    if (EXISTS "${PLATFORM_PATH}")
-      _detect_arduino_version(Arduino_VERSION ${ARDUINO_VERSION_FILE})
-      _create_arduino_targets(${PLATFORM_PATH})
+if (arduino_version_file)
+  if (EXISTS "${vendor_path}")
+    if (EXISTS "${platform_path}")
+      _DETECT_ARDUINO_VERSION(Arduino_VERSION ${arduino_version_file})
+      _create_arduino_targets(${platform_path})
       include(FindPackageHandleStandardArgs)
       FIND_PACKAGE_HANDLE_STANDARD_ARGS(Arduino
         REQUIRED_VARS ARDUINO_SDK_PATH Arduino_VERSION
         VERSION_VAR Arduino_VERSION
       )
     else()
-      message(WARNING "Arduino platform \"${ARDUINO_PLATFORM}\" not found")
+      message(WARNING "Arduino platform \"${ARDUINO_ARCH}\" not found")
     endif()
   else()
     message(WARNING "Arduino vendor \"${ARDUINO_VENDOR}\" not found")
